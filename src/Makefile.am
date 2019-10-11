@@ -37,7 +37,9 @@ libiperf_la_SOURCES     = \
                         timer.h \
                         units.c \
                         units.h \
-                        version.h
+                        version.h \
+                        traffic_distribution.c \
+                        traffic_distribution.h
 
 # Specify the sources and various flags for the iperf binary
 iperf3_SOURCES          = main.c

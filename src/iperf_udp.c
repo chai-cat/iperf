@@ -47,6 +47,7 @@
 #include "net.h"
 #include "cjson.h"
 #include "portable_endian.h"
+#include "traffic_distribution.h"
 
 #if defined(HAVE_INTTYPES_H)
 # include <inttypes.h>
@@ -78,6 +79,12 @@ iperf_udp_recv(struct iperf_stream *sp)
     if (r <= 0)
         return r;
 
+    /*
+    static uint64_t counter = 0;
+    counter++;
+    printf("Packet received with length: %d, blksize: %ld, total received: %lu\n", r, sp->settings->blksize, counter);
+    */
+
     /* Only count bytes received while we're in the correct state. */
     if (sp->test->state == TEST_RUNNING) {
 	sp->result->bytes_received += r;
@@ -104,6 +111,18 @@ iperf_udp_recv(struct iperf_stream *sp)
 	    sent_time.tv_sec = sec;
 	    sent_time.tv_usec = usec;
 	}
+
+    /*
+    // Get body length
+    uint32_t length;
+    if (sp->test->udp_counters_64bit) {
+        memcpy(&length, sp->buffer+16, sizeof(length));
+    } else {
+        memcpy(&length, sp->buffer+12, sizeof(length));
+    }
+
+    length = ntohl(length);
+    */
 
 	if (sp->test->debug)
 	    fprintf(stderr, "pcount %" PRIu64 " packet_count %d\n", pcount, sp->packet_count);
@@ -132,7 +151,7 @@ iperf_udp_recv(struct iperf_stream *sp)
 	    sp->packet_count = pcount;
 	} else {
 
-	    /* 
+	    /*
 	     * Sequence number went backward (or was stationary?!?).
 	     * This counts as an out-of-order packet.
 	     */
@@ -146,10 +165,10 @@ iperf_udp_recv(struct iperf_stream *sp)
 	     */
 	    if (sp->cnt_error > 0)
 		sp->cnt_error--;
-	
+
 	    /* Log the out-of-order packet */
-	    if (sp->test->debug) 
-		fprintf(stderr, "OUT OF ORDER - incoming packet sequence %" PRIu64 " but expected sequence %d on stream %d", pcount, sp->packet_count, sp->socket);
+	    if (sp->test->debug)
+		    fprintf(stderr, "OUT OF ORDER - incoming packet sequence %" PRIu64 " but expected sequence %d on stream %d", pcount, sp->packet_count + 1, sp->socket);
 	}
 
 	/*
@@ -196,6 +215,23 @@ iperf_udp_send(struct iperf_stream *sp)
 
     ++sp->packet_count;
 
+    static iperf_traffic *traffic = NULL;
+
+    if (!traffic) {
+        traffic = getTrafficDistribution();
+        if (!traffic) {
+            return -1;
+        }
+    }
+
+    if (traffic->file) {
+        size = 0;
+        // We need a minimum of 20 bytes for header
+        while (size <= 20) {
+            size = getPacketLength();
+        }
+    }
+
     if (sp->test->udp_counters_64bit) {
 
 	uint32_t  sec, usec;
@@ -204,11 +240,13 @@ iperf_udp_send(struct iperf_stream *sp)
 	sec = htonl(before.tv_sec);
 	usec = htonl(before.tv_usec);
 	pcount = htobe64(sp->packet_count);
-	
+	uint32_t psize;
+	psize = htonl(size);
+
 	memcpy(sp->buffer, &sec, sizeof(sec));
 	memcpy(sp->buffer+4, &usec, sizeof(usec));
 	memcpy(sp->buffer+8, &pcount, sizeof(pcount));
-	
+	memcpy(sp->buffer+16, &psize, sizeof(psize));
     }
     else {
 
@@ -217,14 +255,23 @@ iperf_udp_send(struct iperf_stream *sp)
 	sec = htonl(before.tv_sec);
 	usec = htonl(before.tv_usec);
 	pcount = htonl(sp->packet_count);
-	
+	uint32_t psize;
+	psize = htonl(size);
+
 	memcpy(sp->buffer, &sec, sizeof(sec));
 	memcpy(sp->buffer+4, &usec, sizeof(usec));
 	memcpy(sp->buffer+8, &pcount, sizeof(pcount));
-	
+
+	memcpy(sp->buffer+12, &psize, sizeof(psize));
     }
 
     r = Nwrite(sp->socket, sp->buffer, size, Pudp);
+
+    //printf("Send: Packets sent: %lu with size: %d, bytes written: %d\n", sp->packet_count, size, r);
+
+    if (r != size) {
+        printf("Send error: Packets sent: %u with size: %d, bytes written: %d\n", sp->packet_count, size, r);
+    }
 
     if (r < 0)
 	return r;
@@ -259,7 +306,6 @@ int
 iperf_udp_buffercheck(struct iperf_test *test, int s)
 {
     int rc = 0;
-    int sndbuf_actual, rcvbuf_actual;
 
     /*
      * Set socket buffer size if requested.  Do this for both sending and
@@ -267,7 +313,7 @@ iperf_udp_buffercheck(struct iperf_test *test, int s)
      */
     int opt;
     socklen_t optlen;
-    
+
     if ((opt = test->settings->socket_bufsize)) {
         if (setsockopt(s, SOL_SOCKET, SO_RCVBUF, &opt, sizeof(opt)) < 0) {
             i_errno = IESETBUF;
@@ -280,53 +326,47 @@ iperf_udp_buffercheck(struct iperf_test *test, int s)
     }
 
     /* Read back and verify the sender socket buffer size */
-    optlen = sizeof(sndbuf_actual);
-    if (getsockopt(s, SOL_SOCKET, SO_SNDBUF, &sndbuf_actual, &optlen) < 0) {
+    optlen = sizeof(test->settings->sndbuf_actual);
+    if (getsockopt(s, SOL_SOCKET, SO_SNDBUF, &test->settings->sndbuf_actual, &optlen) < 0) {
 	i_errno = IESETBUF;
 	return -1;
     }
     if (test->debug) {
-	printf("SNDBUF is %u, expecting %u\n", sndbuf_actual, test->settings->socket_bufsize);
+	printf("SNDBUF is %u, expecting %u\n", test->settings->sndbuf_actual, test->settings->socket_bufsize);
     }
-    if (test->settings->socket_bufsize && test->settings->socket_bufsize > sndbuf_actual) {
+    if (test->settings->socket_bufsize && test->settings->socket_bufsize > test->settings->sndbuf_actual) {
 	i_errno = IESETBUF2;
 	return -1;
     }
-    if (test->settings->blksize > sndbuf_actual) {
+    if (test->settings->blksize > test->settings->sndbuf_actual) {
 	char str[80];
 	snprintf(str, sizeof(str),
 		 "Block size %d > sending socket buffer size %d",
-		 test->settings->blksize, sndbuf_actual);
+		 test->settings->blksize, test->settings->sndbuf_actual);
 	warning(str);
 	rc = 1;
     }
 
     /* Read back and verify the receiver socket buffer size */
-    optlen = sizeof(rcvbuf_actual);
-    if (getsockopt(s, SOL_SOCKET, SO_RCVBUF, &rcvbuf_actual, &optlen) < 0) {
+    optlen = sizeof(test->settings->rcvbuf_actual);
+    if (getsockopt(s, SOL_SOCKET, SO_RCVBUF, &test->settings->rcvbuf_actual, &optlen) < 0) {
 	i_errno = IESETBUF;
 	return -1;
     }
     if (test->debug) {
-	printf("RCVBUF is %u, expecting %u\n", rcvbuf_actual, test->settings->socket_bufsize);
+	printf("RCVBUF is %u, expecting %u\n", test->settings->rcvbuf_actual, test->settings->socket_bufsize);
     }
-    if (test->settings->socket_bufsize && test->settings->socket_bufsize > rcvbuf_actual) {
+    if (test->settings->socket_bufsize && test->settings->socket_bufsize > test->settings->rcvbuf_actual) {
 	i_errno = IESETBUF2;
 	return -1;
     }
-    if (test->settings->blksize > rcvbuf_actual) {
+    if (test->settings->blksize > test->settings->rcvbuf_actual) {
 	char str[80];
 	snprintf(str, sizeof(str),
 		 "Block size %d > receiving socket buffer size %d",
-		 test->settings->blksize, rcvbuf_actual);
+		 test->settings->blksize, test->settings->rcvbuf_actual);
 	warning(str);
 	rc = 1;
-    }
-
-    if (test->json_output) {
-	cJSON_AddNumberToObject(test->json_start, "sock_bufsize", test->settings->socket_bufsize);
-	cJSON_AddNumberToObject(test->json_start, "sndbuf_actual", sndbuf_actual);
-	cJSON_AddNumberToObject(test->json_start, "rcvbuf_actual", rcvbuf_actual);
     }
 
     return rc;
@@ -388,7 +428,7 @@ iperf_udp_accept(struct iperf_test *test)
 		return rc;
 	}
     }
-	
+
 #if defined(HAVE_SO_MAX_PACING_RATE)
     /* If socket pacing is specified, try it. */
     if (test->settings->fqrate) {
@@ -500,7 +540,14 @@ iperf_udp_connect(struct iperf_test *test)
 		return rc;
 	}
     }
-	
+
+    if (test->json_output) {
+        cJSON_AddItemToArray(test->json_buffers, iperf_json_printf("sock_bufsize: %d  sndbuf_actual: %d  rcvbuf_actual: %d",
+            (int64_t) test->settings->socket_bufsize,
+            (int64_t) test->settings->sndbuf_actual,
+            (int64_t) test->settings->rcvbuf_actual));
+    }
+
 #if defined(HAVE_SO_MAX_PACING_RATE)
     /* If socket pacing is available and not disabled, try it. */
     if (test->settings->fqrate) {
@@ -538,7 +585,7 @@ iperf_udp_connect(struct iperf_test *test)
      */
     buf = 123456789;		/* this can be pretty much anything */
     if (write(s, &buf, sizeof(buf)) < 0) {
-        // XXX: Should this be changed to IESTREAMCONNECT? 
+        // XXX: Should this be changed to IESTREAMCONNECT?
         i_errno = IESTREAMWRITE;
         return -1;
     }

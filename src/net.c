@@ -218,7 +218,7 @@ netannounce(int domain, int proto, char *local, int port)
 
     snprintf(portstr, 6, "%d", port);
     memset(&hints, 0, sizeof(hints));
-    /* 
+    /*
      * If binding to the wildcard address with no explicit address
      * family specified, then force us to get an AF_INET6 socket.  On
      * CentOS 6 and MacOS, getaddrinfo(3) with AF_UNSPEC in ai_family,
@@ -239,7 +239,7 @@ netannounce(int domain, int proto, char *local, int port)
     hints.ai_socktype = proto;
     hints.ai_flags = AI_PASSIVE;
     if (getaddrinfo(local, portstr, &hints, &res) != 0)
-        return -1; 
+        return -1;
 
     s = socket(res->ai_family, proto, 0);
     if (s < 0) {
@@ -248,7 +248,7 @@ netannounce(int domain, int proto, char *local, int port)
     }
 
     opt = 1;
-    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, 
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR,
 		   (char *) &opt, sizeof(opt)) < 0) {
 	saved_errno = errno;
 	close(s);
@@ -270,7 +270,7 @@ netannounce(int domain, int proto, char *local, int port)
 	    opt = 0;
 	else
 	    opt = 1;
-	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY, 
+	if (setsockopt(s, IPPROTO_IPV6, IPV6_V6ONLY,
 		       (char *) &opt, sizeof(opt)) < 0) {
 	    saved_errno = errno;
 	    close(s);
@@ -290,7 +290,7 @@ netannounce(int domain, int proto, char *local, int port)
     }
 
     freeaddrinfo(res);
-    
+
     if (proto == SOCK_STREAM) {
         if (listen(s, INT_MAX) < 0) {
 	    saved_errno = errno;
@@ -312,6 +312,19 @@ int
 Nread(int fd, char *buf, size_t count, int prot)
 {
     register ssize_t r;
+
+    // For UDP just read the next datagram
+    if (prot == SOCK_DGRAM) {
+        r = read(fd, buf, count);
+        if (r < 0) {
+            if (errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK)
+                return 0;
+            else
+                return NET_HARDERROR;
+        }
+        return r;
+    }
+
     register size_t nleft = count;
 
     while (nleft > 0) {

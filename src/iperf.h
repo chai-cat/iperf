@@ -134,6 +134,8 @@ struct iperf_settings
     int       domain;               /* AF_INET or AF_INET6 */
     int       socket_bufsize;       /* window size for TCP */
     int       blksize;              /* size of read/writes (-l) */
+    int       sndbuf_actual;
+    int       rcvbuf_actual;
     uint64_t  rate;                 /* target data rate for application pacing*/
     uint64_t  fqrate;               /* target data rate for FQ pacing*/
     int	      pacing_timer;	    /* pacing timer in microseconds */
@@ -166,7 +168,7 @@ struct iperf_stream
     int       remote_port;
     int       socket;
     int       id;
-	/* XXX: is settings just a pointer to the same struct in iperf_test? if not, 
+	/* XXX: is settings just a pointer to the same struct in iperf_test? if not,
 		should it be? */
     struct iperf_settings *settings;	/* pointer to structure settings */
 
@@ -295,7 +297,7 @@ struct iperf_test
     fd_set    read_set;                         /* set of read sockets */
     fd_set    write_set;                        /* set of write sockets */
 
-    /* Interval related members */ 
+    /* Interval related members */
     int       omitting;
     double    stats_interval;
     double    reporter_interval;
@@ -331,6 +333,7 @@ struct iperf_test
     cJSON *json_top;
     cJSON *json_start;
     cJSON *json_connected;
+    cJSON *json_buffers;
     cJSON *json_intervals;
     cJSON *json_end;
 

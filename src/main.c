@@ -47,7 +47,7 @@
 #include "units.h"
 #include "iperf_locale.h"
 #include "net.h"
-
+#include "traffic_distribution.h"
 
 static int run(struct iperf_test *test);
 
@@ -102,6 +102,13 @@ main(int argc, char **argv)
         fprintf(stderr, "\n");
         usage_long(stdout);
         exit(1);
+    }
+
+    if (test->role == 'c') {
+        if (loadTrafficTable(test) < 0) {
+            usage_long(stdout);
+            exit(1);
+        }
     }
 
     if (run(test) < 0)
