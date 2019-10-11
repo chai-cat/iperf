@@ -91,6 +91,22 @@ has_tcpinfo_retransmits(void)
 }
 
 /*************************************************************/
+int
+has_tcpinfo_reordered(void)
+{
+#if defined(linux) && defined(TCP_MD5SIG)
+    return 1;
+#else
+#if defined(__FreeBSD__) && __FreeBSD_version >= 600000
+    return 0; // TODO: Support FreeBSD
+#elif defined(__NetBSD__) && defined(TCP_INFO)
+    return 0; // TODO: Support NetBSD
+#else
+    return 0;
+#endif
+#endif
+}
+/*************************************************************/
 void
 save_tcpinfo(struct iperf_stream *sp, struct iperf_interval_results *irp)
 {
@@ -120,6 +136,22 @@ get_total_retransmits(struct iperf_interval_results *irp)
     return irp->tcpInfo.tcpi_snd_rexmitpack;
 #elif defined(__NetBSD__) && defined(TCP_INFO)
     return irp->tcpInfo.tcpi_snd_rexmitpack;
+#else
+    return -1;
+#endif
+}
+/*************************************************************/
+long
+get_total_reorders(struct iperf_interval_results *irp)
+{
+#if defined(linux) && defined(TCP_MD5SIG)
+    return irp->tcpInfo.tcpi_reordering;
+#elif defined(__FreeBSD__) && __FreeBSD_version >= 600000
+#error FreeBSD support for TCP reordering stat required
+    return 0;
+#elif defined(__NetBSD__) && defined(TCP_INFO)
+#error NetBSD support for TCP reordering stat required
+    return 0;
 #else
     return -1;
 #endif

@@ -94,6 +94,7 @@ struct iperf_interval_results
     char *tcpInfo;
 #endif
     int interval_retrans;
+    int interval_tcp_reorders;
     int interval_sacks;
     int snd_cwnd;
     TAILQ_ENTRY(iperf_interval_results) irlistentries;
@@ -111,7 +112,9 @@ struct iperf_stream_result
     iperf_size_t bytes_sent_this_interval;
     iperf_size_t bytes_sent_omit;
     int stream_prev_total_retrans;
+    int stream_prev_total_tcp_reorders;
     int stream_retrans;
+    int stream_tcp_reorders;
     int stream_prev_total_sacks;
     int stream_sacks;
     int stream_max_rtt;

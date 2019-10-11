@@ -310,13 +310,13 @@ const char report_read_length_times[] =
 "[%3d] %5d bytes read %5d times (%.3g%%)\n";
 
 const char report_bw_header[] =
-"[ ID] Interval           Transfer     Bitrate\n";
+"[ ID] Interval           Transfer     Bitrate         Reorder\n";
 
 const char report_bw_retrans_header[] =
-"[ ID] Interval           Transfer     Bitrate         Retr\n";
+"[ ID] Interval           Transfer     Bitrate         Reorder      Retr\n";
 
 const char report_bw_retrans_cwnd_header[] =
-"[ ID] Interval           Transfer     Bitrate         Retr  Cwnd\n";
+"[ ID] Interval           Transfer     Bitrate         Reorder      Retr  Cwnd\n";
 
 const char report_bw_udp_header[] =
 "[ ID] Interval           Transfer     Bitrate         Jitter    Lost/Total Datagrams\n";
@@ -325,13 +325,13 @@ const char report_bw_udp_sender_header[] =
 "[ ID] Interval           Transfer     Bitrate         Total Datagrams\n";
 
 const char report_bw_format[] =
-"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec                  %s\n";
+"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d                  %s\n";
 
 const char report_bw_retrans_format[] =
-"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %3u             %s\n";
+"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d          %3d     %s\n";
 
 const char report_bw_retrans_cwnd_format[] =
-"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %3u   %ss       %s\n";
+"[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d          %3d   %ss       %s\n";
 
 const char report_bw_udp_format[] =
 "[%3d] %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %d/%d (%.2g%%)  %s\n";
@@ -343,10 +343,10 @@ const char report_summary[] =
 "Test Complete. Summary Results:\n";
 
 const char report_sum_bw_format[] =
-"[SUM] %6.2f-%-6.2f sec  %ss  %ss/sec                  %s\n";
+"[SUM] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d                  %s\n";
 
 const char report_sum_bw_retrans_format[] =
-"[SUM] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d             %s\n";
+"[SUM] %6.2f-%-6.2f sec  %ss  %ss/sec  %3d          %3d     %s\n";
 
 const char report_sum_bw_udp_format[] =
 "[SUM] %6.2f-%-6.2f sec  %ss  %ss/sec  %5.3f ms  %d/%d (%.2g%%)  %s\n";
