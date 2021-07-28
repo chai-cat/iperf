@@ -3618,6 +3618,10 @@ iperf_json_start(struct iperf_test *test)
     if (test->json_connected == NULL)
         return -1;
     cJSON_AddItemToObject(test->json_start, "connected", test->json_connected);
+    test->json_buffers = cJSON_CreateArray();
+    if (test->json_buffers == NULL)
+        return -1;
+    cJSON_AddItemToObject(test->json_start, "buffers", test->json_buffers);
     test->json_intervals = cJSON_CreateArray();
     if (test->json_intervals == NULL)
         return -1;
